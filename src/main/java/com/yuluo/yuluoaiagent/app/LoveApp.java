@@ -61,7 +61,7 @@ public class LoveApp {
     }
 
     // 恋爱报告类（静态成员类）
-    record LoveReport(String title, List<String> suggestions){}
+    public record LoveReport(String title, List<String> suggestions){}
 
     /**
      * 恋爱报告生成（结构化输出）
