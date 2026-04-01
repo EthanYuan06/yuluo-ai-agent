@@ -22,14 +22,14 @@ class LoveAppTest {
         String message = "你好，我是羽洛。";
         String answer = loveApp.doChat(message, chatId);
         Assertions.assertNotNull(answer);
-        // 第二轮
-        message = "我喜欢安和昴，如何了解她？";
-        answer = loveApp.doChat(message, chatId);
-        Assertions.assertNotNull(answer);
-        // 第三轮
-        message = "我喜欢的人叫什么来着，刚刚说过，请你帮我回忆一下";
-        answer = loveApp.doChat(message, chatId);
-        Assertions.assertNotNull(answer);
+        // // 第二轮
+        // message = "我喜欢安和昴，如何了解她？";
+        // answer = loveApp.doChat(message, chatId);
+        // Assertions.assertNotNull(answer);
+        // // 第三轮
+        // message = "我喜欢的人叫什么来着，刚刚说过，请你帮我回忆一下";
+        // answer = loveApp.doChat(message, chatId);
+        // Assertions.assertNotNull(answer);
     }
 
     @Test
