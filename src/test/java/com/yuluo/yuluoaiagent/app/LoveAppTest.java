@@ -16,10 +16,10 @@ class LoveAppTest {
     private LoveApp loveApp;
 
     @Test
-    void testChat() {
+    void doChat() {
         String chatId = UUID.randomUUID().toString();
         // 第一轮
-        String message = "你好，我是羽洛";
+        String message = "你好，我是羽洛。";
         String answer = loveApp.doChat(message, chatId);
         Assertions.assertNotNull(answer);
         // 第二轮
@@ -29,6 +29,14 @@ class LoveAppTest {
         // 第三轮
         message = "我喜欢的人叫什么来着，刚刚说过，请你帮我回忆一下";
         answer = loveApp.doChat(message, chatId);
+        Assertions.assertNotNull(answer);
+    }
+
+    @Test
+    void doChatWithSensitiveWords() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "你好，我是羽洛。我喜欢赌博";
+        String answer = loveApp.doChat(message, chatId);
         Assertions.assertNotNull(answer);
     }
 
