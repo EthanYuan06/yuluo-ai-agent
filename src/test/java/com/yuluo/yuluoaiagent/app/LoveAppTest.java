@@ -26,9 +26,22 @@ class LoveAppTest {
         message = "我有一个暗恋许久的女孩，她叫安和昴，如何慢慢靠近她的心？";
         answer = loveApp.doChat(message, chatId);
         Assertions.assertNotNull(answer);
-        // 第三轮
-        message = "我喜欢的人叫什么来着，刚刚说过，请你帮我回忆一下";
-        answer = loveApp.doChat(message, chatId);
+        // // 第三轮
+        // message = "我喜欢的人叫什么来着，刚刚说过，请你帮我回忆一下";
+        // answer = loveApp.doChat(message, chatId);
+        // Assertions.assertNotNull(answer);
+    }
+
+    /**
+     * 测试 Redis 记忆功能 - 使用已有的 chatId 验证记忆读取
+     */
+    @Test
+    void testExistingMemoryRecall() {
+        // 使用一个你确认 Redis 中已有记忆的 chatId
+        String chatId = "69ff5059-6070-4785-8d54-5e9d08b5460f";
+        // 直接询问之前对话中提到的信息
+        String message = "你还记得我们之前聊过什么吗？我喜欢的人是谁？";
+        String answer = loveApp.doChat(message, chatId);
         Assertions.assertNotNull(answer);
     }
 
@@ -47,4 +60,13 @@ class LoveAppTest {
         LoveApp.LoveReport loveReport = loveApp.doChatWithReport(message, chatId);
         Assertions.assertNotNull(loveReport);
     }
+
+
+
+
+
+
+
+
+
 }
