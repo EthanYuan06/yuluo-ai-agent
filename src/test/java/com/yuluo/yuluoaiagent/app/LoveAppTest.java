@@ -62,11 +62,15 @@ class LoveAppTest {
     }
 
 
+    @Test
+    void analyzeImage() throws Exception {
+        String chatId = UUID.randomUUID().toString();
+        // 使用在线图片 URL
+        String imageUrl = "https://i0.hdslb.com/bfs/new_dyn/d836ce1445f7c00025c75776fc4631f01030662977.jpg";
+        String message = "图中的女孩在干什么？";
 
-
-
-
-
-
-
+        String answer = loveApp.analyzeImage(imageUrl, message, chatId);
+        Assertions.assertNotNull(answer);
+        Assertions.assertFalse(answer.isEmpty());
+    }
 }

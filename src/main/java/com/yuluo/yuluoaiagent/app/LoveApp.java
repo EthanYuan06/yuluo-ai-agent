@@ -5,13 +5,20 @@ import com.yuluo.yuluoaiagent.chatmemory.RedisKryoChatMemory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
+import org.springframework.ai.model.Media;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MimeType;
+import org.springframework.util.MimeTypeUtils;
 
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +30,7 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 public class LoveApp {
 
     private final ChatClient chatClient;
+
     private final String systemPromptContent;
 
     public LoveApp(ChatModel dashscopeChatModel,
@@ -88,6 +96,42 @@ public class LoveApp {
         log.info("content: {}", content);
         return content;
     }
+
+    /**
+     * 图像理解功能（多模态）
+     *
+     * @param imageUrl 图片 URL
+     * @param message 用户提示词
+     * @param chatId 会话 ID
+     * @return 响应内容
+     */
+    public String analyzeImage(String imageUrl, String message, String chatId) throws Exception {
+        // 将图片 URL 转换为 Resource，让Spring可以识别
+        UrlResource urlResource = new UrlResource(imageUrl);
+        // 构建图片媒体对象，将图片封装为AI能识别的资源
+        Media media = Media.builder()
+                // 声明图片类型
+                .mimeType(MimeTypeUtils.IMAGE_JPEG)
+                // 绑定资源
+                .data(urlResource)
+                .build();
+        ChatResponse response = chatClient
+                .prompt()
+                .user(userSpec -> userSpec
+                        // 绑定文本指令
+                        .text(message)
+                        // 绑定图片媒体资源
+                        .media(media))
+                .advisors(spec -> spec
+                        .param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .call()
+                .chatResponse();
+        String content = response.getResult().getOutput().getText();
+        log.info("analyzeImage: {}", content);
+        return content;
+    }
+
 
     /**
      * 恋爱报告生成（结构化输出）
