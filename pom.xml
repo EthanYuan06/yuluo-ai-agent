@@ -30,60 +30,74 @@
         <java.version>21</java.version>
     </properties>
     <dependencies>
+        <!-- SpringBoot Web 核心依赖，用于构建 RESTful 接口 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- Hutool 工具包，提供常用工具类简化开发 -->
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>
             <version>5.8.40</version>
         </dependency>
 
+        <!-- 阿里云 AI  Spring AI 集成启动器 -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter</artifactId>
             <version>1.0.0-M6.1</version>
         </dependency>
 
-        <!-- JSON Schema-->
+        <!-- JSON Schema 生成器，用于自动生成 JSON 结构校验规则 -->
         <dependency>
             <groupId>com.github.victools</groupId>
             <artifactId>jsonschema-generator</artifactId>
             <version>4.38.0</version>
         </dependency>
 
+        <!-- Knife4j OpenAPI3 接口文档增强工具（基于 Jakarta 环境） -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
             <version>4.4.0</version>
         </dependency>
 
-        <!-- Redis 依赖 -->
+        <!-- Spring Data Redis 依赖，用于操作 Redis 缓存 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
-        <!-- 连接池依赖-->
+
+        <!-- Apache 通用连接池，配合 Redis 实现连接池管理 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
         </dependency>
 
+        <!-- Markdown 文档读取器-->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-markdown-document-reader</artifactId>
+            <version>1.0.0-M6</version>
+        </dependency>
+
+        <!-- Kryo 序列化框架，用于高性能对象序列化 -->
         <dependency>
             <groupId>com.esotericsoftware</groupId>
             <artifactId>kryo</artifactId>
             <version>5.6.2</version>
         </dependency>
 
-
+        <!-- Lombok 简化 Java 代码，自动生成 getter/setter/构造器等 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
 
+        <!-- SpringBoot 测试依赖，用于单元测试与集成测试 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

@@ -1,15 +1,18 @@
 package com.yuluo.yuluoaiagent.app;
 
 import com.yuluo.yuluoaiagent.advisor.ForbiddenWordAdvisor;
+import com.yuluo.yuluoaiagent.advisor.MyLoggerAdvisor;
 import com.yuluo.yuluoaiagent.chatmemory.RedisKryoChatMemory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.ai.model.Media;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -32,11 +35,12 @@ public class LoveApp {
     private final ChatClient chatClient;
 
     private final String systemPromptContent;
+    private final VectorStore loveAppVectorStore;
 
     public LoveApp(ChatModel dashscopeChatModel,
                    RedisKryoChatMemory chatMemory,
                    @Value("classpath:prompt/system-prompt.st")
-                   Resource systemResource) {
+                   Resource systemResource, VectorStore loveAppVectorStore) {
         // 直接使用资源创建模板
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(systemResource);
         this.systemPromptContent = systemPromptTemplate.render(Map.of("name", "千咲", "voice", "温和的"));
@@ -50,6 +54,7 @@ public class LoveApp {
                         new ForbiddenWordAdvisor()
                 )
                 .build();
+        this.loveAppVectorStore = loveAppVectorStore;
     }
 
     // /**
@@ -90,6 +95,21 @@ public class LoveApp {
                 .user(message)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .call()
+                .chatResponse();
+        String content = response.getResult().getOutput().getText();
+        log.info("Response with RAG: {}", content);
+        return content;
+    }
+
+    public String doChatWithRag(String message, String chatId) {
+        ChatResponse response = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .advisors(new MyLoggerAdvisor())
+                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
                 .call()
                 .chatResponse();
         String content = response.getResult().getOutput().getText();
