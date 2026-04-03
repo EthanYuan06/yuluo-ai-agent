@@ -15,31 +15,63 @@ import java.util.List;
 @Slf4j
 class LoveAppDocumentLoader {
 
+    // 支持通配符的资源加载接口
     private final ResourcePatternResolver resourcePatternResolver;
 
     LoveAppDocumentLoader(ResourcePatternResolver resourcePatternResolver) {
         this.resourcePatternResolver = resourcePatternResolver;
     }
 
-    public List<Document> loadMarkdowns() {
-        List<Document> allDocuments = new ArrayList<>();
+    /**
+     * 仅加载候选人相关文档（用于推荐功能）
+     */
+    public List<Document> loadCandidateDocuments() {
+        return loadDocumentsByPattern("classpath:document/恋爱候选人*.md");
+    }
+
+    /**
+     * 仅加载常见问题与回答文档（用于问答功能）
+     */
+    public List<Document> loadQADocuments() {
+        return loadDocumentsByPattern("classpath:document/恋爱常见问题与回答*.md");
+    }
+
+    private List<Document> loadDocumentsByPattern(String pattern) {
+        List<Document> documents = new ArrayList<>();
         try {
-            // 这里可以修改为你要加载的多个 Markdown 文件的路径模式
-            Resource[] resources = resourcePatternResolver.getResources("classpath:document/*.md");
+            Resource[] resources = resourcePatternResolver.getResources(pattern);
             for (Resource resource : resources) {
                 String fileName = resource.getFilename();
+                assert fileName != null;
+                String gender = extractGenderFromFileName(fileName);
                 MarkdownDocumentReaderConfig config = MarkdownDocumentReaderConfig.builder()
                         .withHorizontalRuleCreateDocument(true)
                         .withIncludeCodeBlock(false)
                         .withIncludeBlockquote(false)
                         .withAdditionalMetadata("filename", fileName)
+                        .withAdditionalMetadata("gender", gender)
                         .build();
                 MarkdownDocumentReader reader = new MarkdownDocumentReader(resource, config);
-                allDocuments.addAll(reader.get());
+                documents.addAll(reader.get());
             }
         } catch (IOException e) {
-            log.error("Markdown 文档加载失败", e);
+            log.error("加载文档失败 [pattern={}]", pattern, e);
         }
-        return allDocuments;
+        return documents;
+    }
+
+    /**
+     * 从文件名中提取性别信息
+     *
+     * @param fileName 文件名
+     * @return         性别
+     */
+    private String extractGenderFromFileName(String fileName) {
+        if (fileName.contains("女生")) {
+            return "female";
+        } else if (fileName.contains("男生")) {
+            return "male";
+        }
+        return "unknown";
     }
 }

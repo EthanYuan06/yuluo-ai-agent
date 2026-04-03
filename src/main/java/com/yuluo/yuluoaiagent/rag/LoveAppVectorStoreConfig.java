@@ -20,7 +20,7 @@ public class LoveAppVectorStoreConfig {
     private LoveAppDocumentLoader loveAppDocumentLoader;
 
     /**
-     * 创建向量数据库
+     * 创建向量数据库（恋爱问答）
      *
      * @param dashscopeEmbeddingModel 模型
      * @return 向量存储
@@ -29,9 +29,22 @@ public class LoveAppVectorStoreConfig {
     VectorStore loveAppVectorStore(EmbeddingModel dashscopeEmbeddingModel) {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(dashscopeEmbeddingModel)
                 .build();
-        // 加载文档
-        List<Document> documents = loveAppDocumentLoader.loadMarkdowns();
+        List<Document> documents = loveAppDocumentLoader.loadQADocuments();
         simpleVectorStore.add(documents);
+        return simpleVectorStore;
+    }
+    /**
+     * 创建向量数据库（恋爱对象推荐）
+     *
+     * @param dashscopeEmbeddingModel 模型
+     * @return 向量存储
+     */
+    @Bean
+    VectorStore candidateVectorStore(EmbeddingModel dashscopeEmbeddingModel) {
+        SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(dashscopeEmbeddingModel)
+                .build();
+        List<Document> candidateDocuments = loveAppDocumentLoader.loadCandidateDocuments();
+        simpleVectorStore.add(candidateDocuments);
         return simpleVectorStore;
     }
 }
