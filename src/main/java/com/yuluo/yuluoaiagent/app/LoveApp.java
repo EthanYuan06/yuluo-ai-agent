@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -36,11 +37,12 @@ public class LoveApp {
 
     private final String systemPromptContent;
     private final VectorStore loveAppVectorStore;
+    private final Advisor loveAppRagCloudAdvisor;
 
     public LoveApp(ChatModel dashscopeChatModel,
                    RedisKryoChatMemory chatMemory,
                    @Value("classpath:prompt/system-prompt.st")
-                   Resource systemResource, VectorStore loveAppVectorStore) {
+                   Resource systemResource, VectorStore loveAppVectorStore, Advisor loveAppRagCloudAdvisor) {
         // 直接使用资源创建模板
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(systemResource);
         this.systemPromptContent = systemPromptTemplate.render(Map.of("name", "千咲", "voice", "温和的"));
@@ -55,6 +57,7 @@ public class LoveApp {
                 )
                 .build();
         this.loveAppVectorStore = loveAppVectorStore;
+        this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
     }
 
     // /**
@@ -98,7 +101,7 @@ public class LoveApp {
                 .call()
                 .chatResponse();
         String content = response.getResult().getOutput().getText();
-        log.info("Response with RAG: {}", content);
+        log.info("Response: {}", content);
         return content;
     }
 
@@ -109,11 +112,14 @@ public class LoveApp {
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .advisors(new MyLoggerAdvisor())
+                // 检索本地向量数据库
                 .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                // 检索云知识库
+                // .advisors(loveAppRagCloudAdvisor)
                 .call()
                 .chatResponse();
         String content = response.getResult().getOutput().getText();
-        log.info("content: {}", content);
+        log.info("Response with RAG: {}", content);
         return content;
     }
 
