@@ -48,7 +48,6 @@ class LoveAppDocumentLoader {
                         .withHorizontalRuleCreateDocument(true)
                         .withIncludeCodeBlock(false)
                         .withIncludeBlockquote(false)
-                        .withAdditionalMetadata("filename", fileName)
                         .withAdditionalMetadata("gender", gender)
                         .build();
                 MarkdownDocumentReader reader = new MarkdownDocumentReader(resource, config);

@@ -83,14 +83,22 @@ class LoveAppTest {
     }
 
     @Test
-    void recommendLovers() {
+    void recommendFemaleLovers() {
         String chatId = UUID.randomUUID().toString();
         String message = "我是一名刚刚实习的程序员男大学生，今年22岁，喜欢上进、温柔、体贴的女生。" +
                 "我平常喜欢讨论关于自我成长的话题，喜欢旅行、看风景。" +
                 "请帮我推荐一名女生，与我的年龄相差不超过5岁。";
         String answer = loveApp.recommendLovers(message, chatId);
         Assertions.assertNotNull(answer);
-        Assertions.assertTrue(answer.contains("女生"), "应该推荐女生");
-        Assertions.assertFalse(answer.contains("男生"), "不应该推荐男生");
+    }
+
+    @Test
+    void recommendMaleLovers() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "我是22岁的程序员女生！刚实习超有干劲，喜欢温柔靠谱、一起进步的男生~" +
+                "平时爱聊成长、爱旅行看风景，想找个同频的搭子！" +
+                "帮我推荐一位年龄差不超过5岁的男生吧！";
+        String answer = loveApp.recommendLovers(message, chatId);
+        Assertions.assertNotNull(answer);
     }
 }

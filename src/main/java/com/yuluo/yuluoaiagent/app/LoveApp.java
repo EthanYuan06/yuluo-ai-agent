@@ -11,6 +11,7 @@ import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
+import org.springframework.ai.document.Document;
 import org.springframework.ai.model.Media;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -22,6 +23,8 @@ import org.springframework.util.MimeTypeUtils;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY;
@@ -32,6 +35,7 @@ public class LoveApp {
 
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
+    private final ChatClient GenderDetectionChatClient;
     private final VectorStore loveAppVectorStore;
     private final VectorStore candidateVectorStore;
     private final Advisor loveAppRagCloudAdvisor;
@@ -73,7 +77,10 @@ public class LoveApp {
                         new ForbiddenWordAdvisor()
                 )
                 .build();
-
+        // 创建性别检测客户端
+        GenderDetectionChatClient = ChatClient.builder(dashscopeChatModel)
+                .defaultSystem("你是一个性别意图解析器。分析用户输入，判断用户想推荐的候选人性别。只输出JSON：{\"targetGender\": \"male\"} 或 {\"targetGender\": \"female\"} 或 {\"targetGender\": \"unknown\"}")
+                .build();
         this.loveAppVectorStore = loveAppVectorStore;
         this.candidateVectorStore = candidateVectorStore;
         this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
@@ -134,8 +141,10 @@ public class LoveApp {
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(message)
                 .topK(5)
-                .filterExpression(targetGender != null ? "gender == '" + targetGender + "'" : null)
+                .filterExpression("gender == '" + targetGender + "'")
                 .build();
+        List<Document> filteredDocs = candidateVectorStore.similaritySearch(searchRequest);
+        log.info("性别过滤条件: gender == '{}', 过滤后剩余片段数: {}", targetGender, filteredDocs.size());
         ChatResponse response = RecommendChatClient
                 .prompt()
                 .user(message)
@@ -219,10 +228,19 @@ public class LoveApp {
      * @return  性别
      */
     private String detectTargetGender(String message) {
-        if (message.contains("女生") || message.contains("女孩") || message.contains("女性") || message.contains("女")) {
-            return "female";
-        } else if (message.contains("男生") || message.contains("男孩") || message.contains("男性") || message.contains("男")) {
-            return "male";
+        String jsonResponse = GenderDetectionChatClient
+                .prompt()
+                .user(message)
+                .call()
+                .content();
+
+        log.info("性别检测原始响应: {}", jsonResponse);
+
+        Pattern pattern = Pattern.compile("\"targetGender\"\\s*:\\s*\"(male|female|unknown)\"");
+        Matcher matcher = pattern.matcher(jsonResponse);
+        if (matcher.find()) {
+            String targetGender = matcher.group(1);
+            return "unknown".equals(targetGender) ? null : targetGender;
         }
         return null;
     }

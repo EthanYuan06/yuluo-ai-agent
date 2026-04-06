@@ -18,6 +18,8 @@ public class LoveAppVectorStoreConfig {
 
     @Resource
     private LoveAppDocumentLoader loveAppDocumentLoader;
+    @Resource
+    private MyKeywordEnricher myKeywordEnricher;
 
     /**
      * 创建向量数据库（恋爱问答）
@@ -44,7 +46,7 @@ public class LoveAppVectorStoreConfig {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(dashscopeEmbeddingModel)
                 .build();
         List<Document> candidateDocuments = loveAppDocumentLoader.loadCandidateDocuments();
-        simpleVectorStore.add(candidateDocuments);
+        simpleVectorStore.add(myKeywordEnricher.enrichDocuments(candidateDocuments));
         return simpleVectorStore;
     }
 }
