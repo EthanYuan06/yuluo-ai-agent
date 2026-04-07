@@ -3,6 +3,7 @@ package com.yuluo.yuluoaiagent.app;
 import com.yuluo.yuluoaiagent.advisor.ForbiddenWordAdvisor;
 import com.yuluo.yuluoaiagent.advisor.MyLoggerAdvisor;
 import com.yuluo.yuluoaiagent.chatmemory.RedisKryoChatMemory;
+import com.yuluo.yuluoaiagent.rag.QueryRewriter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -16,10 +17,10 @@ import org.springframework.ai.model.Media;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
+import jakarta.annotation.Resource;
 
 import java.util.List;
 import java.util.Map;
@@ -33,25 +34,28 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 @Slf4j
 public class LoveApp {
 
+   @Resource
+   private QueryRewriter queryRewriter;
+
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
     private final ChatClient GenderDetectionChatClient;
     private final VectorStore loveAppVectorStore;
     private final VectorStore candidateVectorStore;
-    private final Advisor loveAppRagCloudAdvisor;
+    // private final Advisor loveAppRagCloudAdvisor;
     private final String QAPromptContent;
 
     public LoveApp(ChatModel dashscopeChatModel,
                    RedisKryoChatMemory chatMemory,
                    @Value("classpath:prompt/qa-system-prompt.st")
-                   Resource QASystemResource,
+                   org.springframework.core.io.Resource QASystemResource,
                    @Value("classpath:prompt/recommend-system-prompt.st")
-                   Resource RecommendSystemResource,
+                   org.springframework.core.io.Resource RecommendSystemResource,
                    VectorStore loveAppVectorStore,
                    VectorStore candidateVectorStore,
                    Advisor loveAppRagCloudAdvisor) {
         // 创建问答客户端
-        SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(QASystemResource);
+        SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate( QASystemResource);
         this.QAPromptContent = systemPromptTemplate.render(Map.of("name", "千咲", "voice", "温和的"));
         QAchatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(QAPromptContent)
@@ -65,7 +69,7 @@ public class LoveApp {
                 .build();
 
         // 创建推荐对象客户端
-        SystemPromptTemplate recommendSystemPromptTemplate = new SystemPromptTemplate(RecommendSystemResource);
+        SystemPromptTemplate recommendSystemPromptTemplate = new SystemPromptTemplate((org.springframework.core.io.Resource) RecommendSystemResource);
         String RecommendPromptContent = recommendSystemPromptTemplate.render();
         RecommendChatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(RecommendPromptContent)
@@ -77,13 +81,15 @@ public class LoveApp {
                         new ForbiddenWordAdvisor()
                 )
                 .build();
+
         // 创建性别检测客户端
         GenderDetectionChatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem("你是一个性别意图解析器。分析用户输入，判断用户想推荐的候选人性别。只输出JSON：{\"targetGender\": \"male\"} 或 {\"targetGender\": \"female\"} 或 {\"targetGender\": \"unknown\"}")
                 .build();
+
         this.loveAppVectorStore = loveAppVectorStore;
         this.candidateVectorStore = candidateVectorStore;
-        this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
+        // this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
     }
 
     /**
@@ -113,9 +119,11 @@ public class LoveApp {
      * @return 响应内容
      */
     public String doChatWithRag(String message, String chatId) {
+        // 重写用户提示词
+        String rewrittenMessage = queryRewriter.doQueryRewrite(message);
         ChatResponse response = QAchatClient
                 .prompt()
-                .user(message)
+                .user(rewrittenMessage)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .advisors(new MyLoggerAdvisor())

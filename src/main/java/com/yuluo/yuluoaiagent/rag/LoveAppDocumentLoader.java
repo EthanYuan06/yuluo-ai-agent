@@ -43,12 +43,14 @@ class LoveAppDocumentLoader {
             for (Resource resource : resources) {
                 String fileName = resource.getFilename();
                 assert fileName != null;
+                String status = fileName.substring(fileName.length() - 6, fileName.length() - 4);
                 String gender = extractGenderFromFileName(fileName);
                 MarkdownDocumentReaderConfig config = MarkdownDocumentReaderConfig.builder()
                         .withHorizontalRuleCreateDocument(true)
                         .withIncludeCodeBlock(false)
                         .withIncludeBlockquote(false)
                         .withAdditionalMetadata("gender", gender)
+                        .withAdditionalMetadata("status", status)
                         .build();
                 MarkdownDocumentReader reader = new MarkdownDocumentReader(resource, config);
                 documents.addAll(reader.get());

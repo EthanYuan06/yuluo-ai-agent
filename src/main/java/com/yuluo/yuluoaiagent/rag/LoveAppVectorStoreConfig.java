@@ -32,7 +32,7 @@ public class LoveAppVectorStoreConfig {
         SimpleVectorStore simpleVectorStore = SimpleVectorStore.builder(dashscopeEmbeddingModel)
                 .build();
         List<Document> documents = loveAppDocumentLoader.loadQADocuments();
-        simpleVectorStore.add(documents);
+        simpleVectorStore.add(myKeywordEnricher.enrichDocuments(documents));
         return simpleVectorStore;
     }
     /**
