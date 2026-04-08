@@ -3,7 +3,7 @@ package com.yuluo.yuluoaiagent.app;
 import com.yuluo.yuluoaiagent.advisor.ForbiddenWordAdvisor;
 import com.yuluo.yuluoaiagent.advisor.MyLoggerAdvisor;
 import com.yuluo.yuluoaiagent.chatmemory.RedisKryoChatMemory;
-import com.yuluo.yuluoaiagent.rag.LoveAppRagCustomAdvisorFactory;
+import com.yuluo.yuluoaiagent.rag.factory.LoveAppRagCustomAdvisorFactory;
 import com.yuluo.yuluoaiagent.rag.QueryRewriter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
