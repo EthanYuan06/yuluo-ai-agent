@@ -14,25 +14,32 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
  */
 @Slf4j
 public class LoveAppRagCustomAdvisorFactory {
-    public static Advisor createLoveAppRagCustomAdvisor(VectorStore vectorStore, String status) {
-        // 定义过滤表达式
-        Filter.Expression expression = new FilterExpressionBuilder()
-                .eq("status", status)
-                .build();
-        // 根据以下的配置从向量存储中检索文档
+    // 1. 问答：按 status 过滤
+    public static Advisor createAdvisorForQA(VectorStore vectorStore, String status) {
+        Filter.Expression filter = new FilterExpressionBuilder().eq("status", status).build();
+        return createRagAdvisor(vectorStore, filter);
+    }
+
+    // 2. 推荐：按 gender 过滤
+    public static Advisor createAdvisorForRecommend(VectorStore vectorStore, String gender) {
+        Filter.Expression filter = new FilterExpressionBuilder().eq("gender", gender).build();
+        return createRagAdvisor(vectorStore, filter);
+    }
+
+    /**
+     * 创建 RAG Advisor
+     */
+    private static Advisor createRagAdvisor(VectorStore vectorStore, Filter.Expression filterExpression) {
         DocumentRetriever documentRetriever = VectorStoreDocumentRetriever.builder()
                 .vectorStore(vectorStore)
-                .filterExpression(expression) // 过滤条件
-                .similarityThreshold(0.5) // 相似度阈值
-                .topK(3) // 返回文档数量
+                .filterExpression(filterExpression)
+                .similarityThreshold(0.5)
+                .topK(3)
                 .build();
-        // 创建advisor
+
         return RetrievalAugmentationAdvisor.builder()
                 .documentRetriever(documentRetriever)
-                // 使用自定义的上下文查询增强器
-                .queryAugmenter(
-                        LoveAppContextualQueryAugmenterFactory.createInstance()
-                )
+                .queryAugmenter(LoveAppContextualQueryAugmenterFactory.createInstance())
                 .build();
     }
 }
