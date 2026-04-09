@@ -34,7 +34,7 @@ public class LoveAppRagCustomAdvisorFactory {
                 .vectorStore(vectorStore)
                 .filterExpression(filterExpression)
                 .similarityThreshold(0.5)
-                .topK(3)
+                .topK(10)
                 .build();
 
         return RetrievalAugmentationAdvisor.builder()

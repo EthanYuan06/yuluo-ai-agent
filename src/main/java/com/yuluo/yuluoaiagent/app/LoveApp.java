@@ -128,14 +128,14 @@ public class LoveApp {
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .advisors(new MyLoggerAdvisor())
-                // 调用自定义检索增强advisor（固定写死status，目前不灵活）
-                // .advisors(
-                //         LoveAppRagCustomAdvisorFactory.createAdvisorForQA(
-                //                 loveAppVectorStore, "已婚"
-                //         )
-                // )
+                // 调用自定义检索增强advisor
+                .advisors(
+                        LoveAppRagCustomAdvisorFactory.createAdvisorForQA(
+                                loveAppVectorStore, "已婚"
+                        )
+                )
                 // 检索本地向量数据库
-                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+                // .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
                 // 检索云知识库
                 // .advisors(loveAppRagCloudAdvisor)
                 .call()
