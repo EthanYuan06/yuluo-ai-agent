@@ -43,6 +43,14 @@
             <version>5.8.40</version>
         </dependency>
 
+        <!-- 添加Spring AI MCP starter依赖 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-mcp-client-spring-boot-starter</artifactId>
+            <version>1.0.0-M6</version>
+        </dependency>
+
+
         <!-- jsoup网页抓取 -->
         <dependency>
             <groupId>org.jsoup</groupId>

@@ -8,15 +8,14 @@ import com.yuluo.yuluoaiagent.rag.QueryRewriter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
-import org.springframework.ai.document.Document;
 import org.springframework.ai.model.Media;
 import org.springframework.ai.tool.ToolCallback;
-import org.springframework.ai.vectorstore.SearchRequest;
+
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
@@ -40,6 +39,8 @@ public class LoveApp {
    private QueryRewriter queryRewriter;
    @Resource
    private ToolCallback[] allTools;
+   @Resource
+   private ToolCallbackProvider toolCallbackProvider;
 
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
@@ -215,7 +216,7 @@ public class LoveApp {
 
 
     /**
-     * 恋爱报告生成（结构化输出）
+     * 恋爱报告生成（结构化输出，支持工具调用 / MCP）
      *
      * @param message 用户输入
      * @param chatId  会话ID
@@ -228,6 +229,8 @@ public class LoveApp {
                 .user(message)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                // 工具调用
+                .tools(allTools)
                 .call()
                 .entity(LoveReport.class);
         log.info("loveReport: {}", loveReport);
@@ -253,6 +256,29 @@ public class LoveApp {
                 .chatResponse();
         String content = response.getResult().getOutput().getText();
         log.info("Response with Tools: {}", content);
+        return content;
+    }
+
+    /**
+     * 对话（支持 MCP）
+     *
+     * @param message 用户输入
+     * @param chatId  会话ID
+     * @return 响应内容
+     */
+    public String doChatWithMcp(String message, String chatId) {
+        ChatResponse response = QAchatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .advisors(new MyLoggerAdvisor())
+                // 调用 MCP
+                .tools(toolCallbackProvider)
+                .call()
+                .chatResponse();
+        String content = response.getResult().getOutput().getText();
+        log.info("Response with MCP: {}", content);
         return content;
     }
 

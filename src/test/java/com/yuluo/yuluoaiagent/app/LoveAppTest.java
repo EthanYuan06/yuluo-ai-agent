@@ -100,4 +100,13 @@ class LoveAppTest {
         String answer = loveApp.recommendLovers(message, chatId);
         Assertions.assertNotNull(answer);
     }
+
+    @Test
+    void doChatWithMcp() {
+        String chatId = UUID.randomUUID().toString();
+        // 测试地图 MCP
+        String message = "我想和恋爱对象一起去浪漫约会，请帮我推荐上海靠近黄浦江边、且位置可观赏江景的餐厅";
+        String answer =  loveApp.doChatWithMcp(message, chatId);
+        Assertions.assertNotNull(answer);
+    }
 }
