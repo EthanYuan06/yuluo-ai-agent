@@ -18,8 +18,7 @@ import java.util.stream.Collectors;
 @Service
 public class ImageSearchTool {
 
-    // 替换为你的 Pexels API Key
-    private static final String API_KEY = "EgDxIWbJhedTPgyyDqJBqiyCqOWlnpHNUw47WhE7LRQilmGWaUKPtNP2";
+    private static final String API_KEY = System.getenv("api_key");
     private static final String API_URL = "https://api.pexels.com/v1/search";
 
     @Tool(description = "search image from web")
@@ -38,7 +37,7 @@ public class ImageSearchTool {
     public List<String> searchMediumImages(String query) {
         // 请求头
         Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", API_KEY);
+        headers.put("Authorization", System.getenv(API_KEY));
 
         // 请求参数
         Map<String, Object> params = new HashMap<>();

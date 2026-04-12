@@ -36,3 +36,4 @@ build/
 .vscode/
 /src/main/resources/tmp/
 /tmp/
+/src/main/resources/mcp-servers.json
