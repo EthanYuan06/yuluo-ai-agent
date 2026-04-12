@@ -3,7 +3,9 @@ package com.yuluo.yuluoaiagent.app;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.UUID;
 
@@ -13,6 +15,12 @@ class LoveAppTest {
 
     @Resource
     private LoveApp loveApp;
+
+    @MockitoBean
+    private VectorStore loveAppVectorStore;
+
+    @MockitoBean
+    private VectorStore candidateVectorStore;
 
     @Test
     void doChat() {
@@ -105,7 +113,7 @@ class LoveAppTest {
     void doChatWithMcp() {
         String chatId = UUID.randomUUID().toString();
         // 测试地图 MCP
-        String message = "我想和恋爱对象一起去浪漫约会，请帮我推荐上海靠近黄浦江边、且位置可观赏江景的餐厅";
+        String message = "帮我搜索一些日落海滩的照片";
         String answer =  loveApp.doChatWithMcp(message, chatId);
         Assertions.assertNotNull(answer);
     }
