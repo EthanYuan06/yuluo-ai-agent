@@ -36,4 +36,12 @@ public class FileOperationTool {
             return "Error writing to file: " + e.getMessage();
         }
     }
+
+    @Tool(description = "Generate a markdown file with given content")
+    public String generateMarkdown(
+        @ToolParam(description = "Name of the markdown file (without .md extension)") String fileName,
+        @ToolParam(description = "Markdown content to write") String content) {
+        String fullFileName = fileName.endsWith(".md") ? fileName : fileName + ".md";
+        return writeFile(fullFileName, content);
+    }
 }
