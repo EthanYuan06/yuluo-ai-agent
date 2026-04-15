@@ -6,10 +6,13 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Component;
 
+/**
+ * Manus实例
+ */
 @Component
 public class YuluoLoveManus extends ToolCallAgent {
-    public YuluoLoveManus(ToolCallback[] allTool, ChatModel dashscopeChatModel) {
-        super(allTool);
+    public YuluoLoveManus(ToolCallback[] allTools, ChatModel dashscopeChatModel) {
+        super(allTools);
         this.setName("YuluoLoveManus");
         String SYSTEM_PROMPT = """
                 You are YuluoLoveManus, an all-capable AI assistant, aimed at solving any task presented by the user.

@@ -22,6 +22,7 @@ import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 import jakarta.annotation.Resource;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -35,13 +36,6 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 @Slf4j
 public class LoveApp {
 
-   @Resource
-   private QueryRewriter queryRewriter;
-   @Resource
-   private ToolCallback[] allTools;
-   @Resource
-   private ToolCallbackProvider toolCallbackProvider;
-
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
     private final ChatClient GenderDetectionChatClient;
@@ -49,6 +43,12 @@ public class LoveApp {
     private final VectorStore candidateVectorStore;
     // private final Advisor loveAppRagCloudAdvisor;
     private final String QAPromptContent;
+    @Resource
+    private QueryRewriter queryRewriter;
+    @Resource
+    private ToolCallback[] allTools;
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
 
     public LoveApp(ChatModel dashscopeChatModel,
                    RedisKryoChatMemory chatMemory,
@@ -60,7 +60,7 @@ public class LoveApp {
                    VectorStore candidateVectorStore,
                    Advisor loveAppRagCloudAdvisor) {
         // 创建问答客户端
-        SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate( QASystemResource);
+        SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(QASystemResource);
         this.QAPromptContent = systemPromptTemplate.render(Map.of("name", "千咲", "voice", "温和的"));
         QAchatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(QAPromptContent)
@@ -118,9 +118,29 @@ public class LoveApp {
     }
 
     /**
+     * 对话（流式输出）
+     *
+     * @param message 用户输入
+     * @param chatId  会话ID
+     * @return 响应内容
+     */
+    public Flux<String> doChatByStream(String message, String chatId) {
+        // 不使用ChatResponse，只返回AI输出的文本
+        return QAchatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                .stream()
+                .chatResponse()
+                .map(response -> response.getResult().getOutput().getText());
+    }
+
+    /**
      * 基于 RAG + 本地知识库回复用户问题
+     *
      * @param message 用户提示词
-     * @param chatId 会话 ID
+     * @param chatId  会话 ID
      * @return 响应内容
      */
     public String doChatWithRag(String message, String chatId) {
@@ -151,8 +171,9 @@ public class LoveApp {
 
     /**
      * 向用户推荐对象
+     *
      * @param message 用户提示词
-     * @param chatId 会话 ID
+     * @param chatId  会话 ID
      * @return 响应内容
      */
     public String recommendLovers(String message, String chatId) {
@@ -183,8 +204,8 @@ public class LoveApp {
      * 图像理解功能（多模态）
      *
      * @param imageUrl 图片 URL
-     * @param message 用户提示词
-     * @param chatId 会话 ID
+     * @param message  用户提示词
+     * @param chatId   会话 ID
      * @return 响应内容
      */
     public String analyzeImage(String imageUrl, String message, String chatId) throws Exception {
@@ -282,14 +303,11 @@ public class LoveApp {
         return content;
     }
 
-    // 恋爱报告类（静态成员类）
-    public record LoveReport(String title, List<String> suggestions) {
-    }
-
     /**
      * 检测目标性别
+     *
      * @param message 用户输入
-     * @return  性别
+     * @return 性别
      */
     private String detectTargetGender(String message) {
         String jsonResponse = GenderDetectionChatClient
@@ -307,5 +325,9 @@ public class LoveApp {
             return "unknown".equals(targetGender) ? null : targetGender;
         }
         return null;
+    }
+
+    // 恋爱报告类（静态成员类）
+    public record LoveReport(String title, List<String> suggestions) {
     }
 }

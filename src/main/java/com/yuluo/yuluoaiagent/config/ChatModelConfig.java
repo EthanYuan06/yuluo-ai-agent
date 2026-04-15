@@ -25,8 +25,8 @@ public class ChatModelConfig {
         return new DashScopeChatModel(
                 dashScopeApi,
                 DashScopeChatOptions.builder()
-                        .withModel("qwen-plus")
-                        .withIncrementalOutput(false)
+                        .withModel("qwen-max")
+                        .withIncrementalOutput(true)
                         .build()
         );
     }
@@ -36,7 +36,7 @@ public class ChatModelConfig {
         return new DashScopeChatModel(
                 dashScopeApi,
                 DashScopeChatOptions.builder()
-                        .withModel("qwen3.6-plus")
+                        .withModel("qwen3-vl-plus")
                         .withMultiModel(true)
                         .withIncrementalOutput(true)
                         .build()
