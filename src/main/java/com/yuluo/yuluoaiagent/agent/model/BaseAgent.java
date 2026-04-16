@@ -2,6 +2,8 @@ package com.yuluo.yuluoaiagent.agent.model;
 
 import cn.hutool.core.util.StrUtil;
 import com.alibaba.cloud.ai.agent.Agent;
+import com.yuluo.yuluoaiagent.exception.BusinessException;
+import com.yuluo.yuluoaiagent.exception.ErrorCode;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import opennlp.tools.util.StringUtil;
@@ -51,14 +53,10 @@ public abstract class BaseAgent {
             try {
                 // 基础检查
                 if (this.state != AgentState.IDLE) {
-                    emitter.send("错误，无法在该状态下运行代理： " + this.state);
-                    emitter.complete();
-                    return;
+                    throw new BusinessException(ErrorCode.OPERATION_ERROR, "代理状态异常，无法执行");
                 }
                 if (StrUtil.isBlank(userPrompt)) {
-                    emitter.send("错误，用户提示词不能为空： " + this.state);
-                    emitter.complete();
-                    return;
+                    throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户提示词不能为空");
                 }
                 // 更改状态
                 state = AgentState.RUNNING;
@@ -130,43 +128,3 @@ public abstract class BaseAgent {
      */
     protected void cleanup(){};
 }
-
-// public String run(String userPrompt) {
-//     // 基础检查
-//     if (this.state != AgentState.IDLE) {
-//         throw new RuntimeException("Cannot run agent from state: " + this.state);
-//     }
-//     if (StrUtil.isBlank(userPrompt)) {
-//         throw new RuntimeException("User prompt cannot be empty.");
-//     }
-//     // 更改状态
-//     state = AgentState.RUNNING;
-//     // 记录消息上下文，将用户消息添加到消息列表中
-//     messageList.add(new UserMessage(userPrompt));
-//     // 保存结果列表
-//     List<String> results = new ArrayList<>();
-//     try {
-//         for (int i = 0; i < maxStep && state != AgentState.FINISHED; i++) {
-//             int stepNumber = i + 1;
-//             currentStep = stepNumber;
-//             log.info("Executing step " + stepNumber + " / " + maxStep);
-//             // 单步执行
-//             String stepResult = step();
-//             String result = "Step " + stepNumber + " : " + stepResult;
-//             results.add(result);
-//             // 检查是否超出步骤限制
-//             if (stepNumber >= maxStep) {
-//                 state = AgentState.FINISHED;
-//                 results.add("Maximum number of steps reached.");
-//             }
-//         }
-//         return String.join("\n", results);
-//     } catch (Exception e) {
-//         state = AgentState.ERROR;
-//         log.error("Error executing agent: ", e);
-//         return "执行错误: " + e.getMessage();
-//     } finally {
-//         // 清理资源
-//         this.cleanup();
-//     }
-// }

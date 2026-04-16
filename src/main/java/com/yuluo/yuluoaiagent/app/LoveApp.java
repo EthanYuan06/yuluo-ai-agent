@@ -39,9 +39,9 @@ public class LoveApp {
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
     private final ChatClient GenderDetectionChatClient;
-    private final VectorStore loveAppVectorStore;
-    private final VectorStore candidateVectorStore;
-    // private final Advisor loveAppRagCloudAdvisor;
+    // private final VectorStore loveAppVectorStore;
+    // private final VectorStore candidateVectorStore;
+    private final Advisor loveAppRagCloudAdvisor;
     private final String QAPromptContent;
     @Resource
     private QueryRewriter queryRewriter;
@@ -61,7 +61,8 @@ public class LoveApp {
                    Advisor loveAppRagCloudAdvisor) {
         // 创建问答客户端
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(QASystemResource);
-        this.QAPromptContent = systemPromptTemplate.render(Map.of("name", "千咲", "voice", "温和的"));
+        this.QAPromptContent = systemPromptTemplate
+                .render(Map.of("name", "芊芊", "voice", "温和的"));
         QAchatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(QAPromptContent)
                 .defaultAdvisors(
@@ -74,7 +75,8 @@ public class LoveApp {
                 .build();
 
         // 创建推荐对象客户端
-        SystemPromptTemplate recommendSystemPromptTemplate = new SystemPromptTemplate((org.springframework.core.io.Resource) RecommendSystemResource);
+        SystemPromptTemplate recommendSystemPromptTemplate =
+                new SystemPromptTemplate(RecommendSystemResource);
         String RecommendPromptContent = recommendSystemPromptTemplate.render();
         RecommendChatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultSystem(RecommendPromptContent)
@@ -87,86 +89,48 @@ public class LoveApp {
                 )
                 .build();
 
-        // 创建性别检测客户端
+        // 创建性别检测客户端，性别由登录的用户信息获取
         GenderDetectionChatClient = ChatClient.builder(dashscopeChatModel)
-                .defaultSystem("你是一个性别意图解析器。分析用户输入，判断用户想推荐的候选人性别。只输出JSON：{\"targetGender\": \"male\"} 或 {\"targetGender\": \"female\"} 或 {\"targetGender\": \"unknown\"}")
+                .defaultSystem("""
+                        你是一个性别意图解析器。分析用户输入，判断用户想推荐的候选人性别。
+                        只输出JSON：
+                        {"targetGender": "male"}
+                        或 {"targetGender": "female"}
+                        或 {"targetGender": "unknown"}
+                        """)
                 .build();
 
-        this.loveAppVectorStore = loveAppVectorStore;
-        this.candidateVectorStore = candidateVectorStore;
-        // this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
-    }
-
-    /**
-     * 多轮对话记忆聊天功能
-     *
-     * @param message 用户输入
-     * @param chatId  会话ID
-     * @return 响应内容
-     */
-    public String doChat(String message, String chatId) {
-        ChatResponse response = QAchatClient
-                .prompt()
-                .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .call()
-                .chatResponse();
-        String content = response.getResult().getOutput().getText();
-        log.info("Response: {}", content);
-        return content;
+        // this.loveAppVectorStore = loveAppVectorStore;
+        // this.candidateVectorStore = candidateVectorStore;
+        this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
     }
 
     /**
      * 对话（流式输出）
+     * 基于 RAG + 云知识库
+     * 支持工具调用、MCP
      *
      * @param message 用户输入
      * @param chatId  会话ID
      * @return 响应内容
      */
     public Flux<String> doChatByStream(String message, String chatId) {
-        // 不使用ChatResponse，只返回AI输出的文本
+        // 重写用户提示词
+        String rewrittenMessage = queryRewriter.doQueryRewrite(message);
+        // 只返回AI输出的文本
         return QAchatClient
                 .prompt()
-                .user(message)
+                .user(rewrittenMessage)
+                // 本地工具调用
+                .tools(allTools)
+                // MCP
+                .tools(toolCallbackProvider)
+                // 启用云知识库
+                .advisors(loveAppRagCloudAdvisor)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .stream()
-                .chatResponse()
-                .map(response -> response.getResult().getOutput().getText());
-    }
-
-    /**
-     * 基于 RAG + 本地知识库回复用户问题
-     *
-     * @param message 用户提示词
-     * @param chatId  会话 ID
-     * @return 响应内容
-     */
-    public String doChatWithRag(String message, String chatId) {
-        // 重写用户提示词
-        String rewrittenMessage = queryRewriter.doQueryRewrite(message);
-        ChatResponse response = QAchatClient
-                .prompt()
-                .user(rewrittenMessage)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .advisors(new MyLoggerAdvisor())
-                // 调用自定义检索增强advisor
-                .advisors(
-                        LoveAppRagCustomAdvisorFactory.createAdvisorForQA(
-                                loveAppVectorStore, "已婚"
-                        )
-                )
-                // 检索本地向量数据库
-                // .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
-                // 检索云知识库
-                // .advisors(loveAppRagCloudAdvisor)
-                .call()
-                .chatResponse();
-        String content = response.getResult().getOutput().getText();
-        log.info("Response with RAG: {}", content);
-        return content;
+                .content();
     }
 
     /**
@@ -183,12 +147,12 @@ public class LoveApp {
                 .user(message)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .advisors(new MyLoggerAdvisor())
-                .advisors(
-                        LoveAppRagCustomAdvisorFactory.createAdvisorForRecommend(
-                                candidateVectorStore, targetGender
-                        )
-                )
+                // .advisors(new MyLoggerAdvisor())
+                // .advisors(
+                //         LoveAppRagCustomAdvisorFactory.createAdvisorForRecommend(
+                //                 candidateVectorStore, targetGender
+                //         )
+                // )
                 // 检索本地向量数据库
                 // .advisors(new QuestionAnswerAdvisor(candidateVectorStore))
                 // 检索云知识库
@@ -237,7 +201,7 @@ public class LoveApp {
 
 
     /**
-     * 恋爱报告生成（结构化输出，支持工具调用 / MCP）
+     * 恋爱报告生成（结构化输出，支持工具调用）
      *
      * @param message 用户输入
      * @param chatId  会话ID
@@ -256,28 +220,6 @@ public class LoveApp {
                 .entity(LoveReport.class);
         log.info("loveReport: {}", loveReport);
         return loveReport;
-    }
-
-    /**
-     * 对话（支持工具调用）
-     *
-     * @param message 用户输入
-     * @param chatId  会话ID
-     * @return 响应内容
-     */
-    public String doChatWithTools(String message, String chatId) {
-        ChatResponse response = QAchatClient
-                .prompt()
-                .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .advisors(new MyLoggerAdvisor())
-                .tools(allTools)
-                .call()
-                .chatResponse();
-        String content = response.getResult().getOutput().getText();
-        log.info("Response with Tools: {}", content);
-        return content;
     }
 
     /**

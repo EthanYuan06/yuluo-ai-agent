@@ -1,5 +1,7 @@
 package com.yuluo.yuluoaiagent.advisor;
 
+import com.yuluo.yuluoaiagent.exception.BusinessException;
+import com.yuluo.yuluoaiagent.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.advisor.*;
 import org.springframework.ai.chat.client.advisor.api.*;
@@ -74,9 +76,6 @@ public class ForbiddenWordAdvisor implements CallAroundAdvisor, StreamAroundAdvi
 
     // 拦截响应
     private AdvisedResponse blockResponse(AdvisedRequest request) {
-        ChatResponse chatResponse = new ChatResponse(List.of(
-                new Generation(new AssistantMessage("内容违规，已拦截"))
-        ));
-        return new AdvisedResponse(chatResponse, request.adviseContext());
+        throw new BusinessException(ErrorCode.AI_CONTENT_FILTERED, "内容包含违禁词，已被拦截");
     }
 }
