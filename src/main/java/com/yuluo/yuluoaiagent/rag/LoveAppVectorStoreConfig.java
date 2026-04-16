@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 配置类：基于本地向量数据库的 RAG 功能
  */
-@Configuration
+// @Configuration
 public class LoveAppVectorStoreConfig {
 
     @Resource

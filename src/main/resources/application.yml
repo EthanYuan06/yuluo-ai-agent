@@ -3,3 +3,19 @@ spring:
     name: yuluo-ai-agent
   profiles:
     active: local
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+# springdoc-openapi (默认禁用，生产安全)
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# knife4j (默认禁用)
+knife4j:
+  enable: false

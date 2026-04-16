@@ -21,12 +21,23 @@ class LoveAppRagCloudAdvisorConfig {
     private String dashScopeApiKey;
 
     @Bean
-    public Advisor loveAppRagCloudAdvisor() {
+    public Advisor qaCloudAdvisor() {
         DashScopeApi dashScopeApi = new DashScopeApi(dashScopeApiKey);
-        final String KNOWLEDGE_INDEX = "恋爱常见问题与回答";
         DocumentRetriever documentRetriever = new DashScopeDocumentRetriever(dashScopeApi,
                 DashScopeDocumentRetrieverOptions.builder()
-                        .withIndexName(KNOWLEDGE_INDEX)
+                        .withIndexName("恋爱问答")
+                        .build());
+        return RetrievalAugmentationAdvisor.builder()
+                .documentRetriever(documentRetriever)
+                .build();
+    }
+
+    @Bean
+    public Advisor recommendCloudAdvisor() {
+        DashScopeApi dashScopeApi = new DashScopeApi(dashScopeApiKey);
+        DocumentRetriever documentRetriever = new DashScopeDocumentRetriever(dashScopeApi,
+                DashScopeDocumentRetrieverOptions.builder()
+                        .withIndexName("恋爱对象推荐")
                         .build());
         return RetrievalAugmentationAdvisor.builder()
                 .documentRetriever(documentRetriever)

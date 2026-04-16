@@ -38,10 +38,8 @@ public class LoveApp {
 
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
-    private final ChatClient GenderDetectionChatClient;
-    // private final VectorStore loveAppVectorStore;
-    // private final VectorStore candidateVectorStore;
-    private final Advisor loveAppRagCloudAdvisor;
+    private final Advisor qaCloudAdvisor;
+    private final Advisor recommendCloudAdvisor;
     private final String QAPromptContent;
     @Resource
     private QueryRewriter queryRewriter;
@@ -56,9 +54,7 @@ public class LoveApp {
                    org.springframework.core.io.Resource QASystemResource,
                    @Value("classpath:prompt/recommend-system-prompt.st")
                    org.springframework.core.io.Resource RecommendSystemResource,
-                   VectorStore loveAppVectorStore,
-                   VectorStore candidateVectorStore,
-                   Advisor loveAppRagCloudAdvisor) {
+                   Advisor qaCloudAdvisor, Advisor recommendCloudAdvisor) {
         // 创建问答客户端
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(QASystemResource);
         this.QAPromptContent = systemPromptTemplate
@@ -67,8 +63,6 @@ public class LoveApp {
                 .defaultSystem(QAPromptContent)
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(chatMemory),
-                        // 自定义日志advisor
-                        // new MyLoggerAdvisor(),
                         // 自定义过滤敏感词advisor
                         new ForbiddenWordAdvisor()
                 )
@@ -82,27 +76,12 @@ public class LoveApp {
                 .defaultSystem(RecommendPromptContent)
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(chatMemory),
-                        // 自定义日志advisor
-                        new MyLoggerAdvisor(),
                         // 自定义过滤敏感词advisor
                         new ForbiddenWordAdvisor()
                 )
                 .build();
-
-        // 创建性别检测客户端，性别由登录的用户信息获取
-        GenderDetectionChatClient = ChatClient.builder(dashscopeChatModel)
-                .defaultSystem("""
-                        你是一个性别意图解析器。分析用户输入，判断用户想推荐的候选人性别。
-                        只输出JSON：
-                        {"targetGender": "male"}
-                        或 {"targetGender": "female"}
-                        或 {"targetGender": "unknown"}
-                        """)
-                .build();
-
-        // this.loveAppVectorStore = loveAppVectorStore;
-        // this.candidateVectorStore = candidateVectorStore;
-        this.loveAppRagCloudAdvisor = loveAppRagCloudAdvisor;
+        this.qaCloudAdvisor = qaCloudAdvisor;
+        this.recommendCloudAdvisor = recommendCloudAdvisor;
     }
 
     /**
@@ -126,7 +105,8 @@ public class LoveApp {
                 // MCP
                 .tools(toolCallbackProvider)
                 // 启用云知识库
-                .advisors(loveAppRagCloudAdvisor)
+                .advisors(qaCloudAdvisor)
+                .advisors(new MyLoggerAdvisor())
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .stream()
@@ -140,28 +120,16 @@ public class LoveApp {
      * @param chatId  会话 ID
      * @return 响应内容
      */
-    public String recommendLovers(String message, String chatId) {
-        String targetGender = detectTargetGender(message);
-        ChatResponse response = RecommendChatClient
+    public Flux<String> recommendLovers(String message, String chatId) {
+        return RecommendChatClient
                 .prompt()
                 .user(message)
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                // .advisors(new MyLoggerAdvisor())
-                // .advisors(
-                //         LoveAppRagCustomAdvisorFactory.createAdvisorForRecommend(
-                //                 candidateVectorStore, targetGender
-                //         )
-                // )
-                // 检索本地向量数据库
-                // .advisors(new QuestionAnswerAdvisor(candidateVectorStore))
-                // 检索云知识库
-                // .advisors(loveAppRagCloudAdvisor)
-                .call()
-                .chatResponse();
-        String content = response.getResult().getOutput().getText();
-        log.info("Recommend response: {}", content);
-        return content;
+                .advisors(new MyLoggerAdvisor())
+                .advisors(recommendCloudAdvisor)
+                .stream()
+                .content();
     }
 
     /**
@@ -243,30 +211,6 @@ public class LoveApp {
         String content = response.getResult().getOutput().getText();
         log.info("Response with MCP: {}", content);
         return content;
-    }
-
-    /**
-     * 检测目标性别
-     *
-     * @param message 用户输入
-     * @return 性别
-     */
-    private String detectTargetGender(String message) {
-        String jsonResponse = GenderDetectionChatClient
-                .prompt()
-                .user(message)
-                .call()
-                .content();
-
-        log.info("性别检测原始响应: {}", jsonResponse);
-
-        Pattern pattern = Pattern.compile("\"targetGender\"\\s*:\\s*\"(male|female|unknown)\"");
-        Matcher matcher = pattern.matcher(jsonResponse);
-        if (matcher.find()) {
-            String targetGender = matcher.group(1);
-            return "unknown".equals(targetGender) ? null : targetGender;
-        }
-        return null;
     }
 
     // 恋爱报告类（静态成员类）

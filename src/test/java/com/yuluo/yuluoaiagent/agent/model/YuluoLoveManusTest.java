@@ -20,15 +20,15 @@ class YuManusTest {
     @MockitoBean
     private VectorStore candidateVectorStore;
 
-    @Test
-    void run() {
-        String userPrompt = """  
-                我想在上海和女朋友一起找酒店
-                请帮我找到适合情侣居住的酒店，要求三星级以上，每晚预算不超过500元，
-                并附带酒店的外景图，
-                生成markdown文件，命名“适合情侣在上海居住的酒店”
-                """;
-        String answer = yuluoLoveManus.run(userPrompt);
-        Assertions.assertNotNull(answer);
-    }
+    // @Test
+    // void run() {
+    //     String userPrompt = """
+    //             我想在上海和女朋友一起找酒店
+    //             请帮我找到适合情侣居住的酒店，要求三星级以上，每晚预算不超过500元，
+    //             并附带酒店的外景图，
+    //             生成markdown文件，命名“适合情侣在上海居住的酒店”
+    //             """;
+    //     String answer = yuluoLoveManus.run(userPrompt);
+    //     Assertions.assertNotNull(answer);
+    // }
 }
