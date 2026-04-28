@@ -28,7 +28,7 @@ class YuManusTest {
     //             并附带酒店的外景图，
     //             生成markdown文件，命名“适合情侣在上海居住的酒店”
     //             """;
-    //     String answer = yuluoLoveManus.run(userPrompt);
+    //     String answer = yuluoLoveManus.runStream(userPrompt);
     //     Assertions.assertNotNull(answer);
     // }
 }

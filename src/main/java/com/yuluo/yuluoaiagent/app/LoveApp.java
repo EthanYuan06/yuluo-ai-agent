@@ -1,12 +1,14 @@
 package com.yuluo.yuluoaiagent.app;
 
+import cn.hutool.core.util.ObjectUtil;
 import com.yuluo.yuluoaiagent.advisor.ForbiddenWordAdvisor;
 import com.yuluo.yuluoaiagent.advisor.MyLoggerAdvisor;
 import com.yuluo.yuluoaiagent.chatmemory.RedisKryoChatMemory;
-import com.yuluo.yuluoaiagent.rag.factory.LoveAppRagCustomAdvisorFactory;
+import com.yuluo.yuluoaiagent.model.dto.LoveReportDTO;
 import com.yuluo.yuluoaiagent.rag.QueryRewriter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
@@ -16,7 +18,8 @@ import org.springframework.ai.model.Media;
 import org.springframework.ai.tool.ToolCallback;
 
 import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
 import org.springframework.stereotype.Component;
@@ -24,10 +27,9 @@ import org.springframework.util.MimeTypeUtils;
 import jakarta.annotation.Resource;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
+import java.net.MalformedURLException;
+import java.time.Duration;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY;
@@ -38,6 +40,7 @@ public class LoveApp {
 
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
+    private final ChatClient visionChatClient;
     private final Advisor qaCloudAdvisor;
     private final Advisor recommendCloudAdvisor;
     private final String QAPromptContent;
@@ -48,13 +51,17 @@ public class LoveApp {
     @Resource
     private ToolCallbackProvider toolCallbackProvider;
 
-    public LoveApp(ChatModel dashscopeChatModel,
-                   RedisKryoChatMemory chatMemory,
-                   @Value("classpath:prompt/qa-system-prompt.st")
-                   org.springframework.core.io.Resource QASystemResource,
-                   @Value("classpath:prompt/recommend-system-prompt.st")
-                   org.springframework.core.io.Resource RecommendSystemResource,
-                   Advisor qaCloudAdvisor, Advisor recommendCloudAdvisor) {
+    public LoveApp(
+            @Qualifier("textChatModel")
+            ChatModel dashscopeChatModel,
+            @Qualifier("visionChatModel")
+            ChatModel visionChatModel,
+            RedisKryoChatMemory chatMemory,
+            @Value("classpath:prompt/qa-system-prompt.st")
+            org.springframework.core.io.Resource QASystemResource,
+            @Value("classpath:prompt/recommend-system-prompt.st")
+            org.springframework.core.io.Resource RecommendSystemResource,
+            Advisor qaCloudAdvisor, Advisor recommendCloudAdvisor) {
         // 创建问答客户端
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(QASystemResource);
         this.QAPromptContent = systemPromptTemplate
@@ -80,37 +87,84 @@ public class LoveApp {
                         new ForbiddenWordAdvisor()
                 )
                 .build();
+
+        // 在 LoveApp 构造函数中，为视觉模型创建专门的系统提示词
+        String visionPromptContent = """
+                你是一个智能图像理解助手。当用户提供图片时，请：
+                1. 仔细观察图片内容
+                2. 准确描述图片中的人物、场景、动作
+                3. 根据用户的具体问题给出针对性回答
+                4. 保持温和、友好的语气
+                
+                请直接回答用户关于图片的问题，不需要进行自我介绍。
+                """;
+        // 创建视觉理解客户端
+        visionChatClient = ChatClient.builder(visionChatModel)
+                .defaultSystem(visionPromptContent)
+                .defaultAdvisors(
+                        new MessageChatMemoryAdvisor(chatMemory),
+                        new ForbiddenWordAdvisor()
+                )
+                .build();
+
         this.qaCloudAdvisor = qaCloudAdvisor;
         this.recommendCloudAdvisor = recommendCloudAdvisor;
     }
 
     /**
      * 对话（流式输出）
-     * 基于 RAG + 云知识库
-     * 支持工具调用、MCP
+     * 基于 RAG + 云知识库 + 图片理解
      *
      * @param message 用户输入
      * @param chatId  会话ID
      * @return 响应内容
      */
-    public Flux<String> doChatByStream(String message, String chatId) {
+    public Flux<String> doChatByStream(String imageUrl, String message, String chatId) throws Exception {
         // 重写用户提示词
         String rewrittenMessage = queryRewriter.doQueryRewrite(message);
-        // 只返回AI输出的文本
-        return QAchatClient
-                .prompt()
-                .user(rewrittenMessage)
-                // 本地工具调用
-                .tools(allTools)
-                // MCP
-                .tools(toolCallbackProvider)
-                // 启用云知识库
-                .advisors(qaCloudAdvisor)
-                .advisors(new MyLoggerAdvisor())
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .stream()
-                .content();
+        Flux<String> content;
+        // 有图片url就解析后回答，没有就直接输出回答内容
+        if (ObjectUtil.isNotNull(imageUrl) && !imageUrl.isEmpty()) {
+            log.info("检测到图片url，开始解析图片并回答");
+            // 将图片 URL 转换为 Resource，让Spring可以识别
+            UrlResource urlResource = new UrlResource(imageUrl);
+            // 构建图片媒体对象，将图片封装为AI能识别的资源
+            Media media = Media.builder()
+                    // 声明图片类型
+                    .mimeType(MimeTypeUtils.IMAGE_JPEG)
+                    // 绑定资源
+                    .data(urlResource)
+                    .build();
+            // 只返回AI输出的文本，支持图片理解
+            content = visionChatClient
+                    .prompt()
+                    .user(userSpec -> userSpec
+                            // 绑定文本指令
+                            .text(rewrittenMessage)
+                            // 绑定图片媒体资源
+                            .media(media))
+                    // 启用云知识库
+                    .advisors(qaCloudAdvisor)
+                    .advisors(new MyLoggerAdvisor())
+                    .advisors(spec -> spec
+                            .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                            .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                    .stream()
+                    .content();
+        } else {
+            content = QAchatClient
+                    .prompt()
+                    .user(rewrittenMessage)
+                    // 启用云知识库
+                    .advisors(qaCloudAdvisor)
+                    .advisors(new MyLoggerAdvisor())
+                    .advisors(spec -> spec
+                            .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                            .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                    .stream()
+                    .content();
+        }
+        return content;
     }
 
     /**
@@ -127,93 +181,31 @@ public class LoveApp {
                 .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .advisors(new MyLoggerAdvisor())
+                // 启用云知识库
                 .advisors(recommendCloudAdvisor)
                 .stream()
                 .content();
     }
 
     /**
-     * 图像理解功能（多模态）
+     * 恋爱报告生成（结构化输出）
      *
-     * @param imageUrl 图片 URL
-     * @param message  用户提示词
-     * @param chatId   会话 ID
+     * @param message 用户输入
+     * @param chatId  会话ID
      * @return 响应内容
      */
-    public String analyzeImage(String imageUrl, String message, String chatId) throws Exception {
-        // 将图片 URL 转换为 Resource，让Spring可以识别
-        UrlResource urlResource = new UrlResource(imageUrl);
-        // 构建图片媒体对象，将图片封装为AI能识别的资源
-        Media media = Media.builder()
-                // 声明图片类型
-                .mimeType(MimeTypeUtils.IMAGE_JPEG)
-                // 绑定资源
-                .data(urlResource)
-                .build();
-        ChatResponse response = QAchatClient
+    public LoveReportDTO doChatWithReport(String message, String chatId) {
+        LoveReportDTO loveReport = QAchatClient
                 .prompt()
-                .user(userSpec -> userSpec
-                        // 绑定文本指令
-                        .text(message)
-                        // 绑定图片媒体资源
-                        .media(media))
+                .system(QAPromptContent +
+                        "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表，分点给出5条建议。")
+                .user(message)
                 .advisors(spec -> spec
                         .param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .call()
-                .chatResponse();
-        String content = response.getResult().getOutput().getText();
-        log.info("analyzeImage: {}", content);
-        return content;
-    }
-
-
-    /**
-     * 恋爱报告生成（结构化输出，支持工具调用）
-     *
-     * @param message 用户输入
-     * @param chatId  会话ID
-     * @return 响应内容
-     */
-    public LoveReport doChatWithReport(String message, String chatId) {
-        LoveReport loveReport = QAchatClient
-                .prompt()
-                .system(QAPromptContent + "每次对话后都要生成恋爱结果，标题为{用户名}的恋爱报告，内容为建议列表，分点给出5条建议。")
-                .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                // 工具调用
-                .tools(allTools)
-                .call()
-                .entity(LoveReport.class);
+                .entity(LoveReportDTO.class);
         log.info("loveReport: {}", loveReport);
         return loveReport;
-    }
-
-    /**
-     * 对话（支持 MCP）
-     *
-     * @param message 用户输入
-     * @param chatId  会话ID
-     * @return 响应内容
-     */
-    public String doChatWithMcp(String message, String chatId) {
-        ChatResponse response = QAchatClient
-                .prompt()
-                .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
-                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
-                .advisors(new MyLoggerAdvisor())
-                // 调用 MCP
-                .tools(toolCallbackProvider)
-                .call()
-                .chatResponse();
-        String content = response.getResult().getOutput().getText();
-        log.info("Response with MCP: {}", content);
-        return content;
-    }
-
-    // 恋爱报告类（静态成员类）
-    public record LoveReport(String title, List<String> suggestions) {
     }
 }

@@ -25,7 +25,8 @@ public class FileOperationTool {
         String filePath = FILE_DIR + "/" + fileName;
         FileUtil.mkdir(FILE_DIR);
         FileUtil.writeUtf8String(content, filePath);
-        return "File written successfully to: " + filePath;
+        String downloadUrl = "/file/download/file/" + fileName;
+        return "File written successfully. Download URL: " + downloadUrl;
     }
 
     @Tool(description = "Generate a markdown file with given content")

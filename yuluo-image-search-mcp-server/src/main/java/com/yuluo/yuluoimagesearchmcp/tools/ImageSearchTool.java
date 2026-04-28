@@ -37,7 +37,7 @@ public class ImageSearchTool {
     public List<String> searchMediumImages(String query) {
         // 请求头
         Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", System.getenv(API_KEY));
+        headers.put("Authorization", API_KEY);
 
         // 请求参数
         Map<String, Object> params = new HashMap<>();
