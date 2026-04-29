@@ -13,6 +13,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.model.tool.ToolExecutionResult;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,21 +25,25 @@ import java.util.stream.Collectors;
 public class ToolCallAgent extends ReActAgent{
 
     // 可用的工具列表
-    private ToolCallback[] availableTools;
+    private final ToolCallback[] availableTools;
+    // 注入MCP
+    private final ToolCallbackProvider toolCallbackProvider;
     // 工具调用响应
     private ChatResponse toolCallChatResponse;
     // 工具调用管理者，负责解析响应并调用工具
-    private ToolCallingManager toolCallingManager;
+    private final ToolCallingManager toolCallingManager;
     // AI模型调用配置，用其关闭自动工具调用
-    private ChatOptions chatOptions;
+    private final ChatOptions chatOptions;
 
-    public ToolCallAgent(ToolCallback[] availableTools){
+    public ToolCallAgent(ToolCallback[] availableTools, ToolCallbackProvider toolCallbackProvider){
         super();
         this.availableTools = availableTools;
+        this.toolCallbackProvider = toolCallbackProvider;
         this.toolCallingManager = ToolCallingManager.builder().build();
         // 禁用 Spring AI 内置的工具调用机制，自行维护上下文
         this.chatOptions = DashScopeChatOptions.builder()
                 .withProxyToolCalls(true)
+                .withIncrementalOutput(false)
                 .build();
     }
 
@@ -62,6 +67,7 @@ public class ToolCallAgent extends ReActAgent{
             ChatResponse chatResponse = getChatClient().prompt(prompt)
                     .system(getSystemPrompt())
                     .tools(availableTools)
+                    .tools(toolCallbackProvider)
                     .call()
                     .chatResponse();
             // 记录响应，用于 Act

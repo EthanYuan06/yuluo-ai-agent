@@ -14,6 +14,7 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -28,6 +29,8 @@ public class AiController {
     private LoveApp loveApp;
     @Resource
     private ToolCallback[] allTools;
+    @Resource
+    private ToolCallbackProvider toolCallbackProvider;
     @Resource
     private ChatModel textChatModel;
     @Resource
@@ -140,7 +143,7 @@ public class AiController {
      */
     @PostMapping("manus/chat")
     public SseEmitter doChatWithManus(String message) {
-        YuluoLoveManus yuluoLoveManus = new YuluoLoveManus(allTools, textChatModel);
+        YuluoLoveManus yuluoLoveManus = new YuluoLoveManus(allTools, toolCallbackProvider, textChatModel);
         return yuluoLoveManus.runStream(message);
     }
 

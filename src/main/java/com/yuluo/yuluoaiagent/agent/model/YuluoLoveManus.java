@@ -4,6 +4,7 @@ import com.yuluo.yuluoaiagent.advisor.MyLoggerAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.stereotype.Component;
 
 /**
@@ -11,8 +12,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class YuluoLoveManus extends ToolCallAgent {
-    public YuluoLoveManus(ToolCallback[] allTools, ChatModel dashscopeChatModel) {
-        super(allTools);
+    public YuluoLoveManus(ToolCallback[] allTools, ToolCallbackProvider toolCallbackProvider, ChatModel dashscopeChatModel) {
+        super(allTools, toolCallbackProvider);
         this.setName("YuluoLoveManus");
         String SYSTEM_PROMPT = """
                 You are YuluoLoveManus, an all-capable AI assistant, aimed at solving any task presented by the user.
@@ -26,7 +27,7 @@ public class YuluoLoveManus extends ToolCallAgent {
                 If you want to stop the interaction at any point, use the `terminate` tool/function call.
                 """;
         this.setNextStepPrompt(nextStepPrompt);
-        this.setMaxStep(20);
+        this.setMaxStep(10);
         // 初始化客户端
         ChatClient chatClient = ChatClient.builder(dashscopeChatModel)
                 .defaultAdvisors(new MyLoggerAdvisor())

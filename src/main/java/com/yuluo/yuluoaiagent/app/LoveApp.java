@@ -12,13 +12,9 @@ import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.ai.model.Media;
-import org.springframework.ai.tool.ToolCallback;
 
-import org.springframework.ai.tool.ToolCallbackProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
@@ -27,8 +23,6 @@ import org.springframework.util.MimeTypeUtils;
 import jakarta.annotation.Resource;
 import reactor.core.publisher.Flux;
 
-import java.net.MalformedURLException;
-import java.time.Duration;
 import java.util.Map;
 
 import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY;
@@ -46,10 +40,6 @@ public class LoveApp {
     private final String QAPromptContent;
     @Resource
     private QueryRewriter queryRewriter;
-    @Resource
-    private ToolCallback[] allTools;
-    @Resource
-    private ToolCallbackProvider toolCallbackProvider;
 
     public LoveApp(
             @Qualifier("textChatModel")
@@ -113,7 +103,7 @@ public class LoveApp {
 
     /**
      * 对话（流式输出）
-     * 基于 RAG + 云知识库 + 图片理解
+     * 基于 RAG + 云知识库 + 图片理解 + 工具调用 + MCP
      *
      * @param message 用户输入
      * @param chatId  会话ID
@@ -150,7 +140,7 @@ public class LoveApp {
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                     .stream()
-                    .content();
+                    .content();;
         } else {
             content = QAchatClient
                     .prompt()
@@ -162,7 +152,7 @@ public class LoveApp {
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                     .stream()
-                    .content();
+                    .content();;
         }
         return content;
     }
