@@ -22,7 +22,7 @@ public class PgVectorVectorStoreConfig {
                 .indexType(PgVectorStore.PgIndexType.HNSW)
                 .initializeSchema(true)
                 .schemaName("public")
-                .vectorTableName("vector_store")
+                .vectorTableName("love_document_store")
                 .maxDocumentBatchSize(10000)
                 .build();
     }
