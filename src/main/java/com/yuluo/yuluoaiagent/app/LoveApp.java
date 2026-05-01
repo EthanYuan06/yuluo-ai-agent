@@ -6,15 +6,16 @@ import com.yuluo.yuluoaiagent.advisor.MyLoggerAdvisor;
 import com.yuluo.yuluoaiagent.chatmemory.RedisKryoChatMemory;
 import com.yuluo.yuluoaiagent.model.dto.LoveReportDTO;
 import com.yuluo.yuluoaiagent.rag.QueryRewriter;
+import com.yuluo.yuluoaiagent.rag.factory.LoveAppRagCustomAdvisorFactory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.SystemPromptTemplate;
 import org.springframework.ai.model.Media;
 
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.UrlResource;
@@ -35,11 +36,10 @@ public class LoveApp {
     private final ChatClient QAchatClient;
     private final ChatClient RecommendChatClient;
     private final ChatClient visionChatClient;
-    private final Advisor qaCloudAdvisor;
-    private final Advisor recommendCloudAdvisor;
+    private final ChatClient intentChatClient;
     private final String QAPromptContent;
     @Resource
-    private QueryRewriter queryRewriter;
+    private VectorStore pgVectorStore;
 
     public LoveApp(
             @Qualifier("textChatModel")
@@ -51,7 +51,10 @@ public class LoveApp {
             org.springframework.core.io.Resource QASystemResource,
             @Value("classpath:prompt/recommend-system-prompt.st")
             org.springframework.core.io.Resource RecommendSystemResource,
-            Advisor qaCloudAdvisor, Advisor recommendCloudAdvisor) {
+            @Value("classpath:prompt/intent-system-prompt.st")
+            org.springframework.core.io.Resource IntentSystemResource
+    ) {
+
         // 创建问答客户端
         SystemPromptTemplate systemPromptTemplate = new SystemPromptTemplate(QASystemResource);
         this.QAPromptContent = systemPromptTemplate
@@ -78,27 +81,24 @@ public class LoveApp {
                 )
                 .build();
 
-        // 在 LoveApp 构造函数中，为视觉模型创建专门的系统提示词
-        String visionPromptContent = """
-                你是一个智能图像理解助手。当用户提供图片时，请：
-                1. 仔细观察图片内容
-                2. 准确描述图片中的人物、场景、动作
-                3. 根据用户的具体问题给出针对性回答
-                4. 保持温和、友好的语气
-                
-                请直接回答用户关于图片的问题，不需要进行自我介绍。
-                """;
         // 创建视觉理解客户端
         visionChatClient = ChatClient.builder(visionChatModel)
-                .defaultSystem(visionPromptContent)
+                .defaultSystem(QAPromptContent)
                 .defaultAdvisors(
                         new MessageChatMemoryAdvisor(chatMemory),
                         new ForbiddenWordAdvisor()
                 )
                 .build();
 
-        this.qaCloudAdvisor = qaCloudAdvisor;
-        this.recommendCloudAdvisor = recommendCloudAdvisor;
+        SystemPromptTemplate intentPromptTemplate = new SystemPromptTemplate(IntentSystemResource);
+        String intentPromptContent = intentPromptTemplate.render();
+        // 创建意图理解客户端
+        intentChatClient = ChatClient.builder(dashscopeChatModel)
+                .defaultSystem(intentPromptContent)
+                .defaultAdvisors(
+                        new ForbiddenWordAdvisor()
+                )
+                .build();
     }
 
     /**
@@ -110,8 +110,9 @@ public class LoveApp {
      * @return 响应内容
      */
     public Flux<String> doChatByStream(String imageUrl, String message, String chatId) throws Exception {
-        // 重写用户提示词
-        String rewrittenMessage = queryRewriter.doQueryRewrite(message);
+        // 提前判断是否需要 RAG
+        boolean needRag = isNeedRag(message);
+        log.info("RAG 判断结果: {}, 消息: {}", needRag, message);
         Flux<String> content;
         // 有图片url就解析后回答，没有就直接输出回答内容
         if (ObjectUtil.isNotNull(imageUrl) && !imageUrl.isEmpty()) {
@@ -130,29 +131,47 @@ public class LoveApp {
                     .prompt()
                     .user(userSpec -> userSpec
                             // 绑定文本指令
-                            .text(rewrittenMessage)
+                            .text(message)
                             // 绑定图片媒体资源
                             .media(media))
-                    // 启用云知识库
-                    .advisors(qaCloudAdvisor)
+                    // 条件启用 RAG
+                    .advisors(spec -> {
+                                if (needRag) {
+                                    spec.advisors(LoveAppRagCustomAdvisorFactory
+                                            .createAdvisorByDocType(pgVectorStore, "qa"));
+                                }
+                            }
+                    )
+                    // 日志记录
                     .advisors(new MyLoggerAdvisor())
+                    // 聊天记忆
                     .advisors(spec -> spec
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                     .stream()
-                    .content();;
+                    .content();
+            ;
         } else {
             content = QAchatClient
                     .prompt()
-                    .user(rewrittenMessage)
-                    // 启用云知识库
-                    .advisors(qaCloudAdvisor)
+                    .user(message)
+                    // 条件启用 RAG
+                    .advisors(spec -> {
+                                if (needRag) {
+                                    spec.advisors(LoveAppRagCustomAdvisorFactory
+                                            .createAdvisorByDocType(pgVectorStore, "qa"));
+                                }
+                            }
+                    )
+                    // 日志记录
                     .advisors(new MyLoggerAdvisor())
+                    // 聊天记忆
                     .advisors(spec -> spec
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                             .param(AbstractChatMemoryAdvisor.CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                     .stream()
-                    .content();;
+                    .content();
+            ;
         }
         return content;
     }
@@ -165,14 +184,17 @@ public class LoveApp {
      * @return 响应内容
      */
     public Flux<String> recommendLovers(String message, String chatId) {
+        // todo 从用户登录的个人信息中获取性别信息，目前先用占位符
+        String gender = "female";
         return RecommendChatClient
                 .prompt()
                 .user(message)
-                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                .advisors(spec -> spec
+                        .param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
                 .advisors(new MyLoggerAdvisor())
-                // 启用云知识库
-                .advisors(recommendCloudAdvisor)
+                // 启用本地向量数据库
+                .advisors(LoveAppRagCustomAdvisorFactory.createAdvisorByGender(pgVectorStore, gender))
                 .stream()
                 .content();
     }
@@ -197,5 +219,27 @@ public class LoveApp {
                 .entity(LoveReportDTO.class);
         log.info("loveReport: {}", loveReport);
         return loveReport;
+    }
+
+    /**
+     * 根据用户意图判断是否需要 RAG
+     *
+     * @param message 用户输入
+     * @return 判断结果
+     */
+    private boolean isNeedRag(String message) {
+        if (ObjectUtil.isEmpty(message)) {
+            return false;
+        }
+
+        log.info("意图判断，用户消息：{}", message);
+        String result = intentChatClient.prompt()
+                .user(message)
+                .call()
+                .content()
+                .trim().toUpperCase();
+
+        log.info("意图判断结果：{}", result);
+        return "RAG".equals(result);
     }
 }

@@ -26,8 +26,12 @@ public class McpServerStarter {
 
     /**
      * 启动MCP Server子进程
+     * 注意：已禁用自研图片搜索MCP Server，此方法不再使用
      */
     public void start() {
+        // 已禁用自研图片搜索MCP Server
+        System.out.println("Self-developed image search MCP Server is disabled.");
+        /*
         try {
             // 获取当前应用的工作目录
             String workingDir = System.getProperty("user.dir", ".");
@@ -84,13 +88,18 @@ public class McpServerStarter {
         } catch (IOException e) {
             System.err.println("Failed to start MCP Server sub-process: " + e.getMessage());
         }
+        */
     }
 
     /**
      * 应用关闭时优雅地关闭子进程
+     * 注意：已禁用自研图片搜索MCP Server，此方法不再使用
      */
     @PreDestroy
     public void shutdown() {
+        // 已禁用自研图片搜索MCP Server
+        System.out.println("Self-developed image search MCP Server is disabled, no need to shutdown.");
+        /*
         System.out.println("Shutting down MCP Server sub-process...");
         if (mcpServerProcess != null && mcpServerProcess.isAlive()) {
             mcpServerProcess.destroy();
@@ -102,5 +111,6 @@ public class McpServerStarter {
             }
         }
         System.out.println("MCP Server sub-process shutdown complete.");
+        */
     }
 }

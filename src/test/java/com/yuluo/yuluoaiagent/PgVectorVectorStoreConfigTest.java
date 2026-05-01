@@ -15,7 +15,7 @@ import java.util.Map;
 public class PgVectorVectorStoreConfigTest {
 
     @Resource
-    VectorStore pgVectorVectorStore;
+    VectorStore pgVectorStore;
 
     @Test
     void test() {
@@ -24,9 +24,9 @@ public class PgVectorVectorStoreConfigTest {
                 new Document("The World is Big and Salvation Lurks Around the Corner"),
                 new Document("You walk forward facing the past and you turn back toward the future.", Map.of("meta2", "meta2")));
         // 添加文档
-        pgVectorVectorStore.add(documents);
+        pgVectorStore.add(documents);
         // 相似度查询
-        List<Document> results = pgVectorVectorStore.similaritySearch(SearchRequest.builder().query("Spring").topK(5).build());
+        List<Document> results = pgVectorStore.similaritySearch(SearchRequest.builder().query("Spring").topK(5).build());
         Assertions.assertNotNull(results);
     }
 }

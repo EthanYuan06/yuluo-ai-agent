@@ -1,4 +1,4 @@
-package com.yuluo.yuluoaiagent.config;
+package com.yuluo.yuluoaiagent.rag.config;
 
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -7,14 +7,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgDistanceType.COSINE_DISTANCE;
-import static org.springframework.ai.vectorstore.pgvector.PgVectorStore.PgIndexType.HNSW;
-
+/**
+ * 创建向量数据库配置
+ * 负责将文本数据转换为向量存储在 PostgreSQL 中
+ */
 @Configuration
-public class PgVectorVectorStoreConfig {
+public class PgVectorStoreConfig {
 
     @Bean
-    public VectorStore pgVectorVectorStore(JdbcTemplate jdbcTemplate, EmbeddingModel dashscopeEmbeddingModel) {
+    public VectorStore pgVectorStore(JdbcTemplate jdbcTemplate, EmbeddingModel dashscopeEmbeddingModel) {
         return PgVectorStore.builder(jdbcTemplate, dashscopeEmbeddingModel)
                 // 不要盲目设置
                 .dimensions(1536)

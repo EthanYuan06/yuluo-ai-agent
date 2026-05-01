@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 元信息增强器（自定义关键词）
+ * 元信息增强器
+ * （AI分析文档切片，给出 5个关键词并添加到元信息）
  */
 @Component
 public class MyKeywordEnricher {
